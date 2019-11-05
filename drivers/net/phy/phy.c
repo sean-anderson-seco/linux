@@ -912,7 +912,7 @@ void phy_stop_machine(struct phy_device *phydev)
  */
 void phy_error(struct phy_device *phydev)
 {
-	WARN_ON(1);
+	phydev_err(phydev, "Error detected, halting PHY\n");
 
 	mutex_lock(&phydev->lock);
 	phydev->state = PHY_HALTED;
