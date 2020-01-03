@@ -630,6 +630,15 @@ struct phy_device {
 	u8 master_slave_set;
 	u8 master_slave_state;
 
+	/*
+	 * private to phylib: the resolved pause state - only valid if
+	 * resolved_pause_valid is true. only phy drivers and phylib
+	 * should touch this.
+	 */
+	bool resolved_pause_valid;
+	bool resolved_tx_pause;
+	bool resolved_rx_pause;
+
 	/* Union of PHY and Attached devices' supported link modes */
 	/* See ethtool.h for more info */
 	__ETHTOOL_DECLARE_LINK_MODE_MASK(supported);
