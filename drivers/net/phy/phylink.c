@@ -2462,19 +2462,54 @@ static int phylink_sfp_connect_phy(void *upstream, struct phy_device *phy)
 	else
 		mode = MLO_AN_INBAND;
 
-	/* Do the initial configuration */
-	ret = phylink_sfp_config(pl, mode, phy->supported, phy->advertising);
-	if (ret < 0)
-		return ret;
+	if (!phy_interface_empty(phy->supported_interfaces) &&
+	    !phy_interface_empty(pl->config->supported_interfaces)) {
+		interface = phylink_select_interface(pl,
+						     phy->supported_interfaces,
+						     "phy");
+		if (interface == PHY_INTERFACE_MODE_NA) {
+			phylink_err(pl,
+				    "selection of interface for PHY failed\n");
+			return -EINVAL;
+		}
 
-	interface = pl->link_config.interface;
-	ret = phylink_attach_phy(pl, phy, interface);
-	if (ret < 0)
-		return ret;
+		if (pl->cur_link_an_mode != mode ||
+		    pl->link_config.interface != interface) {
+			pl->link_config.interface = interface;
+			pl->cur_link_an_mode = mode;
 
-	ret = phylink_bringup_phy(pl, phy, interface);
-	if (ret)
-		phy_detach(phy);
+			phylink_info(pl, "switched to %s/%s link mode\n",
+				     phylink_an_mode_str(mode),
+				     phy_modes(interface));
+		}
+
+		ret = phylink_attach_phy(pl, phy, interface);
+		if (ret < 0)
+			return ret;
+
+		ret = phylink_bringup_phy(pl, phy, interface);
+		if (ret)
+			phy_detach(phy);
+
+		if (!test_bit(PHYLINK_DISABLE_STOPPED,
+			      &pl->phylink_disable_state))
+			phylink_mac_initial_config(pl, false);
+	} else {
+		/* Do the initial configuration */
+		ret = phylink_sfp_config(pl, mode, phy->supported,
+					phy->advertising);
+		if (ret < 0)
+			return ret;
+
+		interface = pl->link_config.interface;
+		ret = phylink_attach_phy(pl, phy, interface);
+		if (ret < 0)
+			return ret;
+
+		ret = phylink_bringup_phy(pl, phy, interface);
+		if (ret)
+			phy_detach(phy);
+	}
 
 	return ret;
 }
