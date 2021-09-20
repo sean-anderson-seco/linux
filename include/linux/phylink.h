@@ -1,6 +1,7 @@
 #ifndef NETDEV_PCS_H
 #define NETDEV_PCS_H
 
+#include <linux/notifier.h>
 #include <linux/phy.h>
 #include <linux/spinlock.h>
 #include <linux/workqueue.h>
@@ -432,13 +433,17 @@ struct phylink_pcs_ops;
 
 /**
  * struct phylink_pcs - PHYLINK PCS instance
+ * @dev: the device associated with this PCS
  * @ops: a pointer to the &struct phylink_pcs_ops structure
+ * @list: internal list of PCS devices
  * @poll: poll the PCS for link changes
  *
  * This structure is designed to be embedded within the PCS private data,
  * and will be passed between phylink and the PCS.
  */
 struct phylink_pcs {
+	struct list_head list;
+	struct device *dev;
 	const struct phylink_pcs_ops *ops;
 	bool poll;
 };
