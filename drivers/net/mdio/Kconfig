@@ -43,6 +43,11 @@ config ACPI_MDIO
 
 if MDIO_BUS
 
+config MDIO_NETLINK
+	tristate "Netlink interface for MDIO busses"
+	help
+	  Netlink interface to allow reading/writing MDIO busses.
+
 config MDIO_DEVRES
 	tristate
 
