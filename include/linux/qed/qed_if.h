@@ -1098,7 +1098,7 @@ struct qed_common_ops {
  * @param mac
  *
  */
-	int (*update_mac)(struct qed_dev *cdev, u8 *mac);
+	int (*update_mac)(struct qed_dev *cdev, const u8 *mac);
 
 /**
  * @brief update_mtu - API to inform the change in the mtu

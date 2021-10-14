@@ -345,7 +345,7 @@ int qed_llh_set_roce_affinity(struct qed_dev *cdev, enum qed_eng eng);
  * @param mac_addr - MAC to add
  */
 int qed_llh_add_mac_filter(struct qed_dev *cdev,
-			   u8 ppfid, u8 mac_addr[ETH_ALEN]);
+			   u8 ppfid, const u8 mac_addr[ETH_ALEN]);
 
 /**
  * @brief qed_llh_remove_mac_filter - Remove a LLH MAC filter from the given
