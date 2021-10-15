@@ -510,7 +510,6 @@ static void macb_validate(struct phylink_config *config,
 			  unsigned long *supported,
 			  struct phylink_link_state *state)
 {
-	bool one = state->interface != PHY_INTERFACE_MODE_NA;
 	struct net_device *ndev = to_net_dev(config->dev);
 	__ETHTOOL_DECLARE_LINK_MODE_MASK(mask) = { 0, };
 	struct macb *bp = netdev_priv(ndev);
@@ -521,45 +520,24 @@ static void macb_validate(struct phylink_config *config,
 	 * - 10GBASER supporting 10 Gbit/s only
 	 * Because GMII and MII both support 10/100, GMII falls through to MII.
 	 *
-	 * If we can't support an interface mode, we just clear the supported
-	 * mask and return. The major complication is that if we get
-	 * PHY_INTERFACE_MODE_NA, we must return all modes we support.  Because
-	 * of this, NA starts at the top of the switch and falls all the way to
-	 * the bottom, and doesn't return early if we don't support a
-	 * particular mode.
+	 * Since we set config->supported_interfaces, we will only called with
+	 * interfaces we support.
 	 */
 	switch (state->interface) {
-	case PHY_INTERFACE_MODE_NA:
 	case PHY_INTERFACE_MODE_10GBASER:
-		if (bp->caps & MACB_CAPS_HIGH_SPEED &&
-		    bp->caps & MACB_CAPS_PCS &&
-		    bp->caps & MACB_CAPS_GIGABIT_MODE_AVAILABLE) {
-			phylink_set_10g_modes(mask);
-			phylink_set(mask, 10000baseKR_Full);
-			if (one)
-				break;
-		} else if (one) {
-			bitmap_zero(supported, __ETHTOOL_LINK_MODE_MASK_NBITS);
-			return;
-		}
-		fallthrough;
+		phylink_set_10g_modes(mask);
+		phylink_set(mask, 10000baseKR_Full);
+		break;
 	case PHY_INTERFACE_MODE_GMII:
 	case PHY_INTERFACE_MODE_RGMII:
 	case PHY_INTERFACE_MODE_RGMII_ID:
 	case PHY_INTERFACE_MODE_RGMII_RXID:
 	case PHY_INTERFACE_MODE_RGMII_TXID:
 	case PHY_INTERFACE_MODE_SGMII:
-		if (macb_is_gem(bp)) {
-			if (bp->caps & MACB_CAPS_GIGABIT_MODE_AVAILABLE) {
-				phylink_set(mask, 1000baseT_Full);
-				phylink_set(mask, 1000baseX_Full);
-				if (!(bp->caps & MACB_CAPS_NO_GIGABIT_HALF))
-					phylink_set(mask, 1000baseT_Half);
-			}
-		} else if (one) {
-			bitmap_zero(supported, __ETHTOOL_LINK_MODE_MASK_NBITS);
-			return;
-		}
+		phylink_set(mask, 1000baseT_Full);
+		phylink_set(mask, 1000baseX_Full);
+		if (!(bp->caps & MACB_CAPS_NO_GIGABIT_HALF))
+			phylink_set(mask, 1000baseT_Half);
 		fallthrough;
 	case PHY_INTERFACE_MODE_MII:
 	case PHY_INTERFACE_MODE_RMII:
@@ -569,16 +547,14 @@ static void macb_validate(struct phylink_config *config,
 		phylink_set(mask, 100baseT_Full);
 		break;
 	default:
-		bitmap_zero(supported, __ETHTOOL_LINK_MODE_MASK_NBITS);
-		return;
+		WARN_ON_ONCE(1);
 	}
 
 	phylink_set_port_modes(mask);
 	phylink_set(mask, Autoneg);
 	phylink_set(mask, Asym_Pause);
-	bitmap_and(supported, supported, mask, __ETHTOOL_LINK_MODE_MASK_NBITS);
-	bitmap_and(state->advertising, state->advertising, mask,
-		   __ETHTOOL_LINK_MODE_MASK_NBITS);
+	linkmode_and(supported, supported, mask);
+	linkmode_and(state->advertising, state->advertising, mask);
 }
 
 static void macb_usx_pcs_link_up(struct phylink_pcs *pcs, unsigned int mode,
