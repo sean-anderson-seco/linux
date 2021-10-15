@@ -170,7 +170,35 @@ static const char *phylink_an_mode_str(unsigned int mode)
 static int phylink_validate(struct phylink *pl, unsigned long *supported,
 			    struct phylink_link_state *state)
 {
-	pl->mac_ops->validate(pl->config, supported, state);
+	/* Don't bother calling validate() for unsupported interfaces, if we
+	 * know what interfaces a MAC supports. If the mode is NA, we can just
+	 * iterate through the supported interfaces. This reduces complexity in
+	 * validate(), since there no longer needs to be special-case code for
+	 * NA, nor does there need to be checking for unsupported interfaces.
+	 */
+	if (phy_interface_empty(pl->config->supported_interfaces)) {
+		pl->mac_ops->validate(pl->config, supported, state);
+	} else if (state->interface == PHY_INTERFACE_MODE_NA) {
+		int i;
+		__ETHTOOL_DECLARE_LINK_MODE_MASK(original);
+
+		linkmode_copy(original, supported);
+		for (i = 0; i < PHY_INTERFACE_MODE_MAX; i++) {
+			__ETHTOOL_DECLARE_LINK_MODE_MASK(linkmode_for_iface);
+
+			state->interface = i;
+			linkmode_copy(linkmode_for_iface, original);
+			pl->mac_ops->validate(pl->config, linkmode_for_iface,
+					      state);
+			linkmode_or(supported, supported, linkmode_for_iface);
+		}
+		state->interface = PHY_INTERFACE_MODE_NA;
+	} else if (test_bit(state->interface,
+			    pl->config->supported_interfaces)) {
+		pl->mac_ops->validate(pl->config, supported, state);
+	} else {
+		linkmode_zero(supported);
+	}
 
 	return phylink_is_empty_linkmode(supported) ? -EINVAL : 0;
 }

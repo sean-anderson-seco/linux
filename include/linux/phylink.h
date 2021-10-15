@@ -134,11 +134,14 @@ struct phylink_mac_ops {
  * based on @state->advertising and/or @state->speed and update
  * @state->interface accordingly. See phylink_helper_basex_speed().
  *
- * When @state->interface is %PHY_INTERFACE_MODE_NA, phylink expects the
- * MAC driver to return all supported link modes.
+ * When @state->interface is %PHY_INTERFACE_MODE_NA, phylink expects the MAC
+ * driver to return all supported link modes. If @config->supported_interfaces
+ * is populated, phylink will handle this, and it is not necessary for
+ * validate() to support %PHY_INTERFACE_MODE_NA.
  *
- * If the @state->interface mode is not supported, then the @supported
- * mask must be cleared.
+ * If the @state->interface mode is not supported, then the @supported mask
+ * must be cleared. If @config->supported_interfaces is populated, validate()
+ * will only be called with values of @state->interfaces which it supports.
  */
 void validate(struct phylink_config *config, unsigned long *supported,
 	      struct phylink_link_state *state);
