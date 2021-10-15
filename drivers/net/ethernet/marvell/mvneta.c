@@ -3837,12 +3837,6 @@ static void mvneta_validate(struct phylink_config *config,
 			bitmap_zero(supported, __ETHTOOL_LINK_MODE_MASK_NBITS);
 			return;
 		}
-	} else if (state->interface != PHY_INTERFACE_MODE_NA &&
-		   state->interface != PHY_INTERFACE_MODE_QSGMII &&
-		   state->interface != PHY_INTERFACE_MODE_SGMII &&
-		   !phy_interface_mode_is_rgmii(state->interface)) {
-		bitmap_zero(supported, __ETHTOOL_LINK_MODE_MASK_NBITS);
-		return;
 	}
 
 	/* Allow all the expected bits */
@@ -3870,10 +3864,8 @@ static void mvneta_validate(struct phylink_config *config,
 		phylink_set(mask, 100baseT_Full);
 	}
 
-	bitmap_and(supported, supported, mask,
-		   __ETHTOOL_LINK_MODE_MASK_NBITS);
-	bitmap_and(state->advertising, state->advertising, mask,
-		   __ETHTOOL_LINK_MODE_MASK_NBITS);
+	linkmode_and(supported, supported, mask);
+	linkmode_and(state->advertising, state->advertising, mask);
 
 	/* We can only operate at 2500BaseX or 1000BaseX.  If requested
 	 * to advertise both, only report advertising at 2500BaseX.
