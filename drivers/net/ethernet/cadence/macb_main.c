@@ -880,6 +880,7 @@ static void macb_get_pcs_fixed_state(struct phylink_config *config,
 static int macb_mii_probe(struct net_device *dev)
 {
 	struct macb *bp = netdev_priv(dev);
+	unsigned long *supported = bp->phylink_config.supported_interfaces;
 
 	bp->phylink_config.dev = &dev->dev;
 	bp->phylink_config.type = PHYLINK_NETDEV;
@@ -888,6 +889,21 @@ static int macb_mii_probe(struct net_device *dev)
 		bp->phylink_config.poll_fixed_state = true;
 		bp->phylink_config.get_fixed_state = macb_get_pcs_fixed_state;
 	}
+
+	if (bp->caps & MACB_CAPS_HIGH_SPEED &&
+	    bp->caps & MACB_CAPS_PCS)
+		__set_bit(PHY_INTERFACE_MODE_10GBASER, supported);
+	if (macb_is_gem(bp) && bp->caps & MACB_CAPS_GIGABIT_MODE_AVAILABLE) {
+		__set_bit(PHY_INTERFACE_MODE_GMII, supported);
+		__set_bit(PHY_INTERFACE_MODE_RGMII, supported);
+		__set_bit(PHY_INTERFACE_MODE_RGMII_ID, supported);
+		__set_bit(PHY_INTERFACE_MODE_RGMII_TXID, supported);
+		__set_bit(PHY_INTERFACE_MODE_RGMII_RXID, supported);
+		if (bp->caps & MACB_CAPS_PCS)
+			__set_bit(PHY_INTERFACE_MODE_SGMII, supported);
+	}
+	__set_bit(PHY_INTERFACE_MODE_MII, supported);
+	__set_bit(PHY_INTERFACE_MODE_RMII, supported);
 
 	bp->phylink = phylink_create(&bp->phylink_config, bp->pdev->dev.fwnode,
 				     bp->phy_interface, &macb_phylink_ops);
