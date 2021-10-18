@@ -6303,17 +6303,14 @@ static void mvpp2_phylink_validate(struct phylink_config *config,
 			break;
 		fallthrough;
 	case PHY_INTERFACE_MODE_1000BASEX:
+		phylink_set(mask, 1000baseT_Full);
+		phylink_set(mask, 1000baseX_Full);
+		if (state->interface != PHY_INTERFACE_MODE_NA)
+			break;
+		fallthrough;
 	case PHY_INTERFACE_MODE_2500BASEX:
-		if (port->comphy ||
-		    state->interface != PHY_INTERFACE_MODE_2500BASEX) {
-			phylink_set(mask, 1000baseT_Full);
-			phylink_set(mask, 1000baseX_Full);
-		}
-		if (port->comphy ||
-		    state->interface == PHY_INTERFACE_MODE_2500BASEX) {
-			phylink_set(mask, 2500baseT_Full);
-			phylink_set(mask, 2500baseX_Full);
-		}
+		phylink_set(mask, 2500baseT_Full);
+		phylink_set(mask, 2500baseX_Full);
 		break;
 	default:
 		goto empty_set;
@@ -6322,8 +6319,6 @@ static void mvpp2_phylink_validate(struct phylink_config *config,
 	bitmap_and(supported, supported, mask, __ETHTOOL_LINK_MODE_MASK_NBITS);
 	bitmap_and(state->advertising, state->advertising, mask,
 		   __ETHTOOL_LINK_MODE_MASK_NBITS);
-
-	phylink_helper_basex_speed(state);
 	return;
 
 empty_set:
