@@ -1040,8 +1040,7 @@ static void ag71xx_mac_validate(struct phylink_config *config,
 	phylink_set(mask, 100baseT_Half);
 	phylink_set(mask, 100baseT_Full);
 
-	if (state->interface == PHY_INTERFACE_MODE_NA ||
-	    state->interface == PHY_INTERFACE_MODE_SGMII ||
+	if (state->interface == PHY_INTERFACE_MODE_SGMII ||
 	    state->interface == PHY_INTERFACE_MODE_RGMII ||
 	    state->interface == PHY_INTERFACE_MODE_GMII) {
 		phylink_set(mask, 1000baseT_Full);
