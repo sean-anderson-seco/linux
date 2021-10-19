@@ -102,7 +102,6 @@ static void dpaa2_mac_validate(struct phylink_config *config,
 	phylink_set(mask, Asym_Pause);
 
 	switch (state->interface) {
-	case PHY_INTERFACE_MODE_NA:
 	case PHY_INTERFACE_MODE_10GBASER:
 	case PHY_INTERFACE_MODE_USXGMII:
 		phylink_set_10g_modes(mask);
