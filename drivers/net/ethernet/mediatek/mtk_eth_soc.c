@@ -496,7 +496,6 @@ static void mtk_validate(struct phylink_config *config,
 	case PHY_INTERFACE_MODE_MII:
 	case PHY_INTERFACE_MODE_RMII:
 	case PHY_INTERFACE_MODE_REVMII:
-	case PHY_INTERFACE_MODE_NA:
 	default:
 		phylink_set(mask, 10baseT_Half);
 		phylink_set(mask, 10baseT_Full);
