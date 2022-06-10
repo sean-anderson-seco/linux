@@ -12276,7 +12276,9 @@ T:	git https://github.com/linux-test-project/ltp.git
 LYNX 10G SERDES DRIVER
 M:	Sean Anderson <sean.anderson@seco.com>
 S:	Maintained
+F:	Documentation/driver-api/phy/lynx_10g.rst
 F:	drivers/clk/clk-fsl-lynx-10g.c
+F:	drivers/phy/freescale/phy-fsl-lynx-10g.c
 F:	include/dt-bindings/clock/fsl,lynx-10g.h
 F:	include/linux/phy/lynx-10g.h
 
