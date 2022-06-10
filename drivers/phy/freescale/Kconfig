@@ -47,3 +47,25 @@ config PHY_FSL_LYNX_28G
 	  found on NXP's Layerscape platforms such as LX2160A.
 	  Used to change the protocol running on SerDes lanes at runtime.
 	  Only useful for a restricted set of Ethernet protocols.
+
+config PHY_FSL_LYNX_10G
+	tristate "Freescale QorIQ Lynx 10G SerDes support"
+	depends on COMMON_CLK
+	depends on ARCH_LAYERSCAPE || PPC || COMPILE_TEST
+	select GENERIC_PHY
+	select REGMAP_MMIO
+	help
+	  This adds support for the Lynx "SerDes" devices found on various QorIQ
+	  SoCs. There may be up to four SerDes devices on each SoC, and each
+	  device supports up to eight lanes. The SerDes is configured by
+	  default by the RCW, but this module is necessary in order to support
+	  some modes (such as 2.5G SGMII or 1000BASE-KX), or clock setups (as
+	  only as subset of clock configurations are supported by the RCW).
+	  The hardware supports a variety of protocols, including Ethernet,
+	  SATA, PCIe, and more exotic links such as Interlaken and Aurora. This
+	  driver only supports Ethernet, but it will try not to touch lanes
+	  configured for other protocols.
+
+	  If you have a QorIQ processor and want to dynamically reconfigure your
+	  SerDes, say Y. If this driver is compiled as a module, it will be
+	  named phy-fsl-lynx-10g-drv.
