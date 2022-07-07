@@ -1,11 +1,14 @@
-// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
-/* Copyright 2020 NXP
+// SPDX-License-Identifier: GPL-2.0+
+/* Copyright (C) 2022 Sean Anderson <seanga2@gmail.com>
+ * Copyright 2020 NXP
  * Lynx PCS MDIO helpers
  */
 
 #include <linux/mdio.h>
-#include <linux/phylink.h>
+#include <linux/of.h>
+#include <linux/pcs.h>
 #include <linux/pcs-lynx.h>
+#include <linux/phylink.h>
 
 #define SGMII_CLOCK_PERIOD_NS		8 /* PCS is clocked at 125 MHz */
 #define LINK_TIMER_VAL(ns)		((u32)((ns) / SGMII_CLOCK_PERIOD_NS))
@@ -333,7 +336,26 @@ struct phylink_pcs *lynx_pcs_create(struct mdio_device *mdio)
 
 	return lynx_to_phylink_pcs(lynx);
 }
-EXPORT_SYMBOL(lynx_pcs_create);
+EXPORT_SYMBOL_GPL(lynx_pcs_create);
+
+static int lynx_pcs_probe(struct mdio_device *mdio)
+{
+	struct device *dev = &mdio->dev;
+	struct phylink_pcs *pcs;
+	int ret;
+
+	pcs = lynx_pcs_create(mdio);
+	if (!pcs)
+		return -ENOMEM;
+
+	dev_set_drvdata(dev, pcs);
+	pcs->dev = dev;
+	ret = pcs_register(pcs);
+	if (ret)
+		return dev_err_probe(dev, ret, "could not register PCS\n");
+	dev_info(dev, "probed\n");
+	return 0;
+}
 
 void lynx_pcs_destroy(struct phylink_pcs *pcs)
 {
@@ -343,4 +365,51 @@ void lynx_pcs_destroy(struct phylink_pcs *pcs)
 }
 EXPORT_SYMBOL(lynx_pcs_destroy);
 
-MODULE_LICENSE("Dual BSD/GPL");
+static void lynx_pcs_remove(struct mdio_device *mdio)
+{
+	struct phylink_pcs *pcs = dev_get_drvdata(&mdio->dev);
+
+	pcs_unregister(pcs);
+	lynx_pcs_destroy(pcs);
+}
+EXPORT_SYMBOL_GPL(lynx_pcs_destroy);
+
+static const struct of_device_id lynx_pcs_of_match[] = {
+	{ .compatible = "fsl,lynx-pcs" },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, lynx_pcs_of_match);
+
+static struct mdio_driver lynx_pcs_driver = {
+	.probe = lynx_pcs_probe,
+	.remove = lynx_pcs_remove,
+	.mdiodrv.driver = {
+		.name = "lynx-pcs",
+		.of_match_table = of_match_ptr(lynx_pcs_of_match),
+	},
+};
+mdio_module_driver(lynx_pcs_driver);
+
+struct device *lynx_pcs_create_on_bus(struct mii_bus *bus, int addr)
+{
+	struct mdio_device *mdio;
+	int err;
+
+	mdio = mdio_device_create(bus, addr);
+	if (IS_ERR(mdio))
+		return ERR_CAST(mdio);
+
+	mdio->bus_match = mdio_device_bus_match;
+	strncpy(mdio->modalias, "lynx-pcs", sizeof(mdio->modalias));
+	err = mdio_device_register(mdio);
+	if (err) {
+		mdio_device_free(mdio);
+		return ERR_PTR(err);
+	}
+
+	return &mdio->dev;
+}
+EXPORT_SYMBOL(lynx_pcs_create_on_bus);
+
+MODULE_DESCRIPTION("NXP Lynx 10G/28G PCS driver");
+MODULE_LICENSE("GPL");
