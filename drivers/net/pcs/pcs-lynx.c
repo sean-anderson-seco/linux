@@ -38,15 +38,6 @@ enum sgmii_speed {
 };
 
 #define phylink_pcs_to_lynx(pl_pcs) container_of((pl_pcs), struct lynx_pcs, pcs)
-#define lynx_to_phylink_pcs(lynx) (&(lynx)->pcs)
-
-struct mdio_device *lynx_get_mdio_device(struct phylink_pcs *pcs)
-{
-	struct lynx_pcs *lynx = phylink_pcs_to_lynx(pcs);
-
-	return lynx->mdio;
-}
-EXPORT_SYMBOL(lynx_get_mdio_device);
 
 static void lynx_pcs_get_state_usxgmii(struct mdio_device *pcs,
 				       struct phylink_link_state *state)
@@ -322,57 +313,27 @@ static const struct phylink_pcs_ops lynx_pcs_phylink_ops = {
 	.pcs_link_up = lynx_pcs_link_up,
 };
 
-struct phylink_pcs *lynx_pcs_create(struct mdio_device *mdio)
-{
-	struct lynx_pcs *lynx;
-
-	lynx = kzalloc(sizeof(*lynx), GFP_KERNEL);
-	if (!lynx)
-		return NULL;
-
-	lynx->mdio = mdio;
-	lynx->pcs.ops = &lynx_pcs_phylink_ops;
-	lynx->pcs.poll = true;
-
-	return lynx_to_phylink_pcs(lynx);
-}
-EXPORT_SYMBOL_GPL(lynx_pcs_create);
-
 static int lynx_pcs_probe(struct mdio_device *mdio)
 {
 	struct device *dev = &mdio->dev;
-	struct phylink_pcs *pcs;
+	struct lynx_pcs *lynx;
 	int ret;
 
-	pcs = lynx_pcs_create(mdio);
-	if (!pcs)
+	lynx = kzalloc(sizeof(*lynx), GFP_KERNEL);
+	if (!lynx)
 		return -ENOMEM;
 
-	dev_set_drvdata(dev, pcs);
-	pcs->dev = dev;
-	ret = pcs_register(pcs);
+	lynx->mdio = mdio;
+	lynx->pcs.dev = dev;
+	lynx->pcs.ops = &lynx_pcs_phylink_ops;
+	lynx->pcs.poll = true;
+
+	ret = devm_pcs_register(dev, &lynx->pcs);
 	if (ret)
 		return dev_err_probe(dev, ret, "could not register PCS\n");
 	dev_info(dev, "probed\n");
 	return 0;
 }
-
-void lynx_pcs_destroy(struct phylink_pcs *pcs)
-{
-	struct lynx_pcs *lynx = phylink_pcs_to_lynx(pcs);
-
-	kfree(lynx);
-}
-EXPORT_SYMBOL(lynx_pcs_destroy);
-
-static void lynx_pcs_remove(struct mdio_device *mdio)
-{
-	struct phylink_pcs *pcs = dev_get_drvdata(&mdio->dev);
-
-	pcs_unregister(pcs);
-	lynx_pcs_destroy(pcs);
-}
-EXPORT_SYMBOL_GPL(lynx_pcs_destroy);
 
 static const struct of_device_id lynx_pcs_of_match[] = {
 	{ .compatible = "fsl,lynx-pcs" },
@@ -382,7 +343,6 @@ MODULE_DEVICE_TABLE(of, lynx_pcs_of_match);
 
 static struct mdio_driver lynx_pcs_driver = {
 	.probe = lynx_pcs_probe,
-	.remove = lynx_pcs_remove,
 	.mdiodrv.driver = {
 		.name = "lynx-pcs",
 		.of_match_table = of_match_ptr(lynx_pcs_of_match),
