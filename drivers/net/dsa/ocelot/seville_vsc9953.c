@@ -924,11 +924,15 @@ static int vsc9953_mdio_bus_alloc(struct ocelot *ocelot)
 	rc = mscc_miim_setup(dev, &bus, "VSC9953 internal MDIO bus",
 			     ocelot->targets[GCB],
 			     ocelot->map[GCB][GCB_MIIM_MII_STATUS & REG_MASK]);
-
 	if (rc) {
 		dev_err(dev, "failed to setup MDIO bus\n");
 		return rc;
 	}
+
+	/* Suppress PHY device creation in mdiobus_scan(),
+	 * we have Lynx PCSs
+	 */
+	bus->phy_mask = ~0;
 
 	/* Needed in order to initialize the bus mutex lock */
 	rc = devm_of_mdiobus_register(dev, bus, NULL);
