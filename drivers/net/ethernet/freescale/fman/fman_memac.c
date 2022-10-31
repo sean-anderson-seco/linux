@@ -11,7 +11,7 @@
 
 #include <linux/slab.h>
 #include <linux/io.h>
-#include <linux/pcs-lynx.h>
+#include <linux/pcs.h>
 #include <linux/phy.h>
 #include <linux/phy_fixed.h>
 #include <linux/phy/phy.h>
@@ -974,25 +974,17 @@ static int memac_init(struct fman_mac *memac)
 	return 0;
 }
 
-static void pcs_put(struct phylink_pcs *pcs)
-{
-	struct mdio_device *mdiodev;
-
-	if (IS_ERR_OR_NULL(pcs))
-		return;
-
-	mdiodev = lynx_get_mdio_device(pcs);
-	lynx_pcs_destroy(pcs);
-	mdio_device_free(mdiodev);
-}
-
 static int memac_free(struct fman_mac *memac)
 {
 	free_init_resources(memac);
 
-	pcs_put(memac->sgmii_pcs);
-	pcs_put(memac->qsgmii_pcs);
-	pcs_put(memac->xfi_pcs);
+	if (!IS_ERR(memac->xfi_pcs))
+		pcs_put(memac->xfi_pcs);
+	if (!IS_ERR(memac->qsgmii_pcs))
+		pcs_put(memac->qsgmii_pcs);
+	if (!IS_ERR(memac->sgmii_pcs))
+		pcs_put(memac->sgmii_pcs);
+
 	kfree(memac->memac_drv_param);
 	kfree(memac);
 
@@ -1039,25 +1031,6 @@ static struct fman_mac *memac_config(struct mac_device *mac_dev,
 	return memac;
 }
 
-static struct phylink_pcs *memac_pcs_create(struct device_node *mac_node,
-					    int index)
-{
-	struct device_node *node;
-	struct mdio_device *mdiodev = NULL;
-	struct phylink_pcs *pcs;
-
-	node = of_parse_phandle(mac_node, "pcsphy-handle", index);
-	if (node && of_device_is_available(node))
-		mdiodev = of_mdio_find_device(node);
-	of_node_put(node);
-
-	if (!mdiodev)
-		return ERR_PTR(-EPROBE_DEFER);
-
-	pcs = lynx_pcs_create(mdiodev);
-	return pcs;
-}
-
 static bool memac_supports(struct mac_device *mac_dev, phy_interface_t iface)
 {
 	/* If there's no serdes device, assume that it's been configured for
@@ -1076,7 +1049,6 @@ int memac_initialization(struct mac_device *mac_dev,
 {
 	int			 err;
 	struct device_node      *fixed;
-	struct phylink_pcs	*pcs;
 	struct fman_mac		*memac;
 	unsigned long		 capabilities;
 	unsigned long		*supported;
@@ -1101,56 +1073,48 @@ int memac_initialization(struct mac_device *mac_dev,
 	memac->memac_drv_param->max_frame_length = fman_get_max_frm();
 	memac->memac_drv_param->reset_on_init = true;
 
-	err = of_property_match_string(mac_node, "pcs-handle-names", "xfi");
-	if (err >= 0) {
-		memac->xfi_pcs = memac_pcs_create(mac_node, err);
-		if (IS_ERR(memac->xfi_pcs)) {
-			err = PTR_ERR(memac->xfi_pcs);
-			dev_err_probe(mac_dev->dev, err, "missing xfi pcs\n");
+	memac->xfi_pcs = pcs_get_optional(mac_dev->dev, "xfi");
+	if (IS_ERR(memac->xfi_pcs)) {
+		err = PTR_ERR(memac->xfi_pcs);
+		dev_err_probe(mac_dev->dev, err, "missing xfi pcs\n");
+		goto _return_fm_mac_free;
+	}
+
+	memac->qsgmii_pcs = pcs_get_optional(mac_dev->dev, "qsgmii");
+	if (IS_ERR(memac->qsgmii_pcs)) {
+		err = PTR_ERR(memac->qsgmii_pcs);
+		dev_err_probe(mac_dev->dev, err, "missing qsgmii pcs\n");
+		goto _return_fm_mac_free;
+	}
+
+	memac->sgmii_pcs = pcs_get_optional(mac_dev->dev, "sgmii");
+	if (IS_ERR(memac->sgmii_pcs)) {
+		err = PTR_ERR(memac->sgmii_pcs);
+		dev_err_probe(mac_dev->dev, err, "missing sgmii pcs\n");
+		goto _return_fm_mac_free;
+	}
+
+	if (!memac->sgmii_pcs && !memac->qsgmii_pcs && !memac->xfi_pcs) {
+		struct phylink_pcs *pcs;
+
+		/* For compatibility, if pcs-handle-names is missing, we assume
+		 * this phy is the first one in pcsphy-handle
+		 */
+		pcs = pcs_get_optional(mac_dev->dev, NULL);
+		if (IS_ERR(pcs)) {
+			err = PTR_ERR(pcs);
+			dev_err_probe(mac_dev->dev, err, "missing pcs\n");
 			goto _return_fm_mac_free;
 		}
-	} else if (err != -EINVAL && err != -ENODATA) {
-		goto _return_fm_mac_free;
+
+		/* If the interface mode is XGMII, assume this is for XFI.
+		 * Otherwise, assume this PCS is for SGMII.
+		 */
+		if (memac->dev_id->phy_if == PHY_INTERFACE_MODE_XGMII)
+			memac->xfi_pcs = pcs;
+		else
+			memac->sgmii_pcs = pcs;
 	}
-
-	err = of_property_match_string(mac_node, "pcs-handle-names", "qsgmii");
-	if (err >= 0) {
-		memac->qsgmii_pcs = memac_pcs_create(mac_node, err);
-		if (IS_ERR(memac->qsgmii_pcs)) {
-			err = PTR_ERR(memac->qsgmii_pcs);
-			dev_err_probe(mac_dev->dev, err,
-				      "missing qsgmii pcs\n");
-			goto _return_fm_mac_free;
-		}
-	} else if (err != -EINVAL && err != -ENODATA) {
-		goto _return_fm_mac_free;
-	}
-
-	/* For compatibility, if pcs-handle-names is missing, we assume this
-	 * phy is the first one in pcsphy-handle
-	 */
-	err = of_property_match_string(mac_node, "pcs-handle-names", "sgmii");
-	if (err == -EINVAL || err == -ENODATA)
-		pcs = memac_pcs_create(mac_node, 0);
-	else if (err < 0)
-		goto _return_fm_mac_free;
-	else
-		pcs = memac_pcs_create(mac_node, err);
-
-	if (IS_ERR(pcs)) {
-		err = PTR_ERR(pcs);
-		dev_err_probe(mac_dev->dev, err, "missing pcs\n");
-		goto _return_fm_mac_free;
-	}
-
-	/* If err is set here, it means that pcs-handle-names was missing above
-	 * (and therefore that xfi_pcs cannot be set). If we are defaulting to
-	 * XGMII, assume this is for XFI. Otherwise, assume it is for SGMII.
-	 */
-	if (err && mac_dev->phy_if == PHY_INTERFACE_MODE_XGMII)
-		memac->xfi_pcs = pcs;
-	else
-		memac->sgmii_pcs = pcs;
 
 	memac->serdes = devm_of_phy_get(mac_dev->dev, mac_node, "serdes");
 	err = PTR_ERR(memac->serdes);
