@@ -926,13 +926,6 @@ static const struct component_master_ops malidp_master_ops = {
 	.unbind = malidp_unbind,
 };
 
-static int malidp_compare_dev(struct device *dev, void *data)
-{
-	struct device_node *np = data;
-
-	return dev->of_node == np;
-}
-
 static int malidp_platform_probe(struct platform_device *pdev)
 {
 	struct device_node *port;
@@ -946,9 +939,7 @@ static int malidp_platform_probe(struct platform_device *pdev)
 	if (!port)
 		return -ENODEV;
 
-	drm_of_component_match_add(&pdev->dev, &match, malidp_compare_dev,
-				   port);
-	of_node_put(port);
+	component_match_add_of(&pdev->dev, &match, port);
 	return component_master_add_with_match(&pdev->dev, &malidp_master_ops,
 					       match);
 }

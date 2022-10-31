@@ -5,6 +5,7 @@
  * Author: Rob Clark <robdclark@gmail.com>
  */
 
+#include <linux/component.h>
 #include <linux/dma-mapping.h>
 #include <linux/fault-inject.h>
 #include <linux/kthread.h>
@@ -1148,10 +1149,9 @@ static int add_components_mdp(struct device *master_dev,
 			continue;
 
 		if (of_device_is_available(intf))
-			drm_of_component_match_add(master_dev, matchptr,
-						   component_compare_of, intf);
-
-		of_node_put(intf);
+			component_match_add_of(master_dev, matchptr, intf);
+		else
+			of_node_put(intf);
 	}
 
 	return 0;
@@ -1180,9 +1180,9 @@ static int add_gpu_components(struct device *dev,
 		return 0;
 
 	if (of_device_is_available(np))
-		drm_of_component_match_add(dev, matchptr, component_compare_of, np);
-
-	of_node_put(np);
+		component_match_add_of(dev, matchptr, np);
+	else
+		of_node_put(np);
 
 	return 0;
 }

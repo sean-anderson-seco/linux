@@ -1445,8 +1445,7 @@ static int ingenic_drm_probe(struct platform_device *pdev)
 	if (!np)
 		return ingenic_drm_bind(dev, false);
 
-	drm_of_component_match_add(dev, &match, component_compare_of, np);
-	of_node_put(np);
+	component_match_add_of(dev, &match, np);
 
 	return component_master_add_with_match(dev, &ingenic_master_ops, match);
 }

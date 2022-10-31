@@ -173,7 +173,8 @@ int tilcdc_get_external_components(struct device *dev,
 	}
 
 	if (match)
-		drm_of_component_match_add(dev, match, dev_match_of, node);
-	of_node_put(node);
+		component_match_add_of(dev, match, node);
+	else
+		of_node_put(node);
 	return 1;
 }

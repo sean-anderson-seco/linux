@@ -590,8 +590,8 @@ static int etnaviv_pdev_probe(struct platform_device *pdev)
 			if (!first_node)
 				first_node = core_node;
 
-			drm_of_component_match_add(&pdev->dev, &match,
-						   component_compare_of, core_node);
+			of_node_get(code_node);
+			component_match_add_of(&pdev->dev, &match, core_node);
 		}
 	} else {
 		char **names = dev->platform_data;

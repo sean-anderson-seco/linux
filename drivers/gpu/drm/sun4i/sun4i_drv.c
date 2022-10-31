@@ -323,7 +323,8 @@ static int sun4i_drv_add_endpoints(struct device *dev,
 	     of_device_is_available(node))) {
 		/* Add current component */
 		DRM_DEBUG_DRIVER("Adding component %pOF\n", node);
-		drm_of_component_match_add(dev, match, component_compare_of, node);
+		of_node_get(node);
+		component_match_add_of(dev, match, node);
 		count++;
 	}
 

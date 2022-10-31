@@ -273,8 +273,7 @@ static int kirin_drm_platform_probe(struct platform_device *pdev)
 	if (!remote)
 		return -ENODEV;
 
-	drm_of_component_match_add(dev, &match, component_compare_of, remote);
-	of_node_put(remote);
+	component_match_add_of(dev, &match, remote);
 
 	return component_master_add_with_match(dev, &kirin_drm_ops, match);
 }

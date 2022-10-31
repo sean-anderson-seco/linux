@@ -103,10 +103,8 @@ static void komeda_add_slave(struct device *master,
 	struct device_node *remote;
 
 	remote = of_graph_get_remote_node(np, port, endpoint);
-	if (remote) {
-		drm_of_component_match_add(master, match, component_compare_of, remote);
-		of_node_put(remote);
-	}
+	if (remote)
+		component_match_add_of(master, match, remote);
 }
 
 static int komeda_platform_probe(struct platform_device *pdev)
