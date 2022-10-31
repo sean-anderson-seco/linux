@@ -4474,8 +4474,7 @@ static int wcd938x_add_slave_components(struct wcd938x_priv *wcd938x,
 	}
 
 	of_node_get(wcd938x->rxnode);
-	component_match_add_release(dev, matchptr, component_release_of,
-				    component_compare_of, wcd938x->rxnode);
+	component_match_add_of(dev, matchptr, wcd938x->rxnode);
 
 	wcd938x->txnode = of_parse_phandle(np, "qcom,tx-device", 0);
 	if (!wcd938x->txnode) {
@@ -4483,8 +4482,7 @@ static int wcd938x_add_slave_components(struct wcd938x_priv *wcd938x,
 		return -ENODEV;
 	}
 	of_node_get(wcd938x->txnode);
-	component_match_add_release(dev, matchptr, component_release_of,
-				    component_compare_of, wcd938x->txnode);
+	component_match_add_of(dev, matchptr, wcd938x->txnode);
 	return 0;
 }
 

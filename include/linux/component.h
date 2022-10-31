@@ -6,6 +6,7 @@
 
 
 struct device;
+struct device_node;
 
 /**
  * struct component_ops - callbacks for component drivers
@@ -126,6 +127,14 @@ static inline void component_match_add(struct device *parent,
 {
 	component_match_add_release(parent, matchptr, NULL, compare,
 				    compare_data);
+}
+
+static inline void component_match_add_of(struct device *parent,
+					  struct component_match **matchptr,
+					  struct device_node *node)
+{
+	component_match_add_release(parent, matchptr, component_release_of,
+				    component_compare_of, node);
 }
 
 #endif

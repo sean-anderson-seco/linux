@@ -130,10 +130,9 @@ int drm_of_component_probe(struct device *dev,
 			break;
 
 		if (of_device_is_available(port->parent))
-			drm_of_component_match_add(dev, &match, compare_of,
-						   port);
-
-		of_node_put(port);
+			component_match_add_of(dev, &match, port);
+		else
+			of_node_put(port);
 	}
 
 	if (i == 0) {
@@ -171,9 +170,7 @@ int drm_of_component_probe(struct device *dev,
 				continue;
 			}
 
-			drm_of_component_match_add(dev, &match, compare_of,
-						   remote);
-			of_node_put(remote);
+			component_match_add_of(dev, &match, remote);
 		}
 		of_node_put(port);
 	}
