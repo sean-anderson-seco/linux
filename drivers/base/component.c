@@ -313,6 +313,35 @@ void component_release_of(struct device *dev, void *data)
 EXPORT_SYMBOL_GPL(component_release_of);
 
 /**
+ * component_compare_fwnode()
+ *     - A common component compare function for fwnode_handle
+ * @dev: component device
+ * @data: A &struct fwnode_handle
+ *
+ * A comparison function for &struct fwnode_handle.
+ */
+int component_compare_fwnode(struct device *dev, void *data)
+{
+	return device_match_fwnode(dev, data);
+}
+EXPORT_SYMBOL_GPL(component_compare_fwnode);
+
+/**
+ * component_release_fwnode()
+ *     - A common component release function for fwnode_handle
+ * @dev: component device
+ * @data: A &struct fwnode_handle
+ *
+ * Release a &struct fwnode_handle passed to component_match_add_release().
+ */
+void component_release_fwnode(struct device *dev, void *data)
+{
+	fwnode_handle_put(data);
+}
+EXPORT_SYMBOL_GPL(component_release_fwnode);
+
+
+/**
  * component_compare_dev - A common component compare function for dev
  * @dev: component device
  * @data: @compare_data from component_match_add_release()

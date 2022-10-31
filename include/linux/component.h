@@ -4,9 +4,9 @@
 
 #include <linux/stddef.h>
 
-
 struct device;
 struct device_node;
+struct fwnode_handle;
 
 /**
  * struct component_ops - callbacks for component drivers
@@ -86,6 +86,8 @@ struct component_master_ops {
 /* A set helper functions for component compare/release */
 int component_compare_of(struct device *dev, void *data);
 void component_release_of(struct device *dev, void *data);
+int component_compare_fwnode(struct device *dev, void *data);
+void component_release_fwnode(struct device *dev, void *data);
 int component_compare_dev(struct device *dev, void *data);
 int component_compare_dev_name(struct device *dev, void *data);
 
@@ -135,6 +137,14 @@ static inline void component_match_add_of(struct device *parent,
 {
 	component_match_add_release(parent, matchptr, component_release_of,
 				    component_compare_of, node);
+}
+
+static inline void component_match_add_fwnode(struct device *parent,
+					      struct component_match **matchptr,
+					      struct fwnode_handle *fwnode)
+{
+	component_match_add_release(parent, matchptr, component_release_fwnode,
+				    component_compare_fwnode, fwnode);
 }
 
 #endif
