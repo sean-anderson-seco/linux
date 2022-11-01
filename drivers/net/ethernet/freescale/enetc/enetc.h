@@ -400,6 +400,9 @@ int enetc_setup_bpf(struct net_device *dev, struct netdev_bpf *xdp);
 int enetc_xdp_xmit(struct net_device *ndev, int num_frames,
 		   struct xdp_frame **frames, u32 flags);
 
+int enetc_pf_pcs_get(struct enetc_ndev_priv *priv);
+void enetc_pf_pcs_put(struct enetc_ndev_priv *priv);
+
 /* ethtool */
 void enetc_set_ethtool_ops(struct net_device *ndev);
 

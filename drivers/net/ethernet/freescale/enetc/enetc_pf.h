@@ -46,6 +46,8 @@ struct enetc_pf {
 
 	struct mii_bus *mdio; /* saved for cleanup */
 	struct mii_bus *imdio;
+	struct component_match *match;
+	struct device *pcs_dev;
 	struct phylink_pcs *pcs;
 
 	phy_interface_t if_mode;

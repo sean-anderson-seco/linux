@@ -5,6 +5,7 @@ config FSL_ENETC
 	select FSL_ENETC_IERB
 	select FSL_ENETC_MDIO
 	select PHYLINK
+	select PCS
 	select PCS_LYNX
 	select DIMLIB
 	help

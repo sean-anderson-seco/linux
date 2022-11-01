@@ -2357,6 +2357,12 @@ int enetc_open(struct net_device *ndev)
 	if (err)
 		goto err_phy_connect;
 
+	if (enetc_si_is_pf(priv->si)) {
+		err = enetc_pf_pcs_get(priv);
+		if (err)
+			goto err_pcs_get;
+	}
+
 	err = enetc_alloc_tx_resources(priv);
 	if (err)
 		goto err_alloc_tx;
@@ -2386,6 +2392,9 @@ err_set_queues:
 err_alloc_rx:
 	enetc_free_tx_resources(priv);
 err_alloc_tx:
+	if (enetc_si_is_pf(priv->si))
+		enetc_pf_pcs_put(priv);
+err_pcs_get:
 	if (priv->phylink)
 		phylink_disconnect_phy(priv->phylink);
 err_phy_connect:
@@ -2425,6 +2434,8 @@ int enetc_close(struct net_device *ndev)
 	enetc_stop(ndev);
 	enetc_clear_bdrs(priv);
 
+	if (enetc_si_is_pf(priv->si))
+		enetc_pf_pcs_put(priv);
 	if (priv->phylink)
 		phylink_disconnect_phy(priv->phylink);
 	enetc_free_rxtx_rings(priv);

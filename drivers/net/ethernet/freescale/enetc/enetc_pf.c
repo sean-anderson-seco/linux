@@ -8,6 +8,7 @@
 #include <linux/of_platform.h>
 #include <linux/of_mdio.h>
 #include <linux/of_net.h>
+#include <linux/pcs.h>
 #include <linux/pcs-lynx.h>
 #include "enetc_ierb.h"
 #include "enetc_pf.h"
@@ -875,8 +876,6 @@ static int enetc_imdio_create(struct enetc_pf *pf)
 {
 	struct device *dev = &pf->si->pdev->dev;
 	struct enetc_mdio_priv *mdio_priv;
-	struct phylink_pcs *phylink_pcs;
-	struct mdio_device *mdio_device;
 	struct mii_bus *bus;
 	int err;
 
@@ -894,48 +893,24 @@ static int enetc_imdio_create(struct enetc_pf *pf)
 	mdio_priv->mdio_base = ENETC_PM_IMDIO_BASE;
 	snprintf(bus->id, MII_BUS_ID_SIZE, "%s-imdio", dev_name(dev));
 
-	err = mdiobus_register(bus);
-	if (err) {
-		dev_err(dev, "cannot register internal MDIO bus (%d)\n", err);
-		goto free_mdio_bus;
-	}
-
-	mdio_device = mdio_device_create(bus, 0);
-	if (IS_ERR(mdio_device)) {
-		err = PTR_ERR(mdio_device);
-		dev_err(dev, "cannot create mdio device (%d)\n", err);
-		goto unregister_mdiobus;
-	}
-
-	phylink_pcs = lynx_pcs_create(mdio_device);
-	if (!phylink_pcs) {
-		mdio_device_free(mdio_device);
-		err = -ENOMEM;
+	pf->pcs_dev = lynx_pcs_create_on_bus(bus, 0);
+	if (IS_ERR(pf->pcs_dev)) {
+		err = PTR_ERR(pf->pcs_dev);
 		dev_err(dev, "cannot create lynx pcs (%d)\n", err);
-		goto unregister_mdiobus;
+		mdiobus_unregister(bus);
+		mdiobus_free(bus);
+		return err;
 	}
 
+	component_match_add(dev, &pf->match, component_compare_dev,
+			    pf->pcs_dev);
 	pf->imdio = bus;
-	pf->pcs = phylink_pcs;
 
 	return 0;
-
-unregister_mdiobus:
-	mdiobus_unregister(bus);
-free_mdio_bus:
-	mdiobus_free(bus);
-	return err;
 }
 
 static void enetc_imdio_remove(struct enetc_pf *pf)
 {
-	struct mdio_device *mdio_device;
-
-	if (pf->pcs) {
-		mdio_device = lynx_get_mdio_device(pf->pcs);
-		mdio_device_free(mdio_device);
-		lynx_pcs_destroy(pf->pcs);
-	}
 	if (pf->imdio) {
 		mdiobus_unregister(pf->imdio);
 		mdiobus_free(pf->imdio);
@@ -1226,6 +1201,74 @@ static int enetc_pf_register_with_ierb(struct pci_dev *pdev)
 	return enetc_ierb_register_pf(ierb_pdev, pdev);
 }
 
+int enetc_pf_pcs_get(struct enetc_ndev_priv *priv)
+{
+	struct enetc_pf *pf = enetc_si_priv(priv->si);
+
+	pf->pcs = pcs_get_by_provider_dev(pf->pcs_dev);
+	if (IS_ERR(pf->pcs))
+		return PTR_ERR(pf->pcs);
+
+	return 0;
+}
+
+void enetc_pf_pcs_put(struct enetc_ndev_priv *priv)
+{
+	struct enetc_pf *pf = enetc_si_priv(priv->si);
+
+	pcs_put(pf->pcs);
+}
+
+static int enetc_pf_master_bind(struct device *dev)
+{
+	struct enetc_si *si = dev_get_drvdata(dev);
+	struct enetc_ndev_priv *priv;
+	int err;
+
+	priv = netdev_priv(si->ndev);
+
+	err = component_bind_all(dev, NULL);
+	if (err)
+		return err;
+
+	err = enetc_phylink_create(priv, dev_of_node(dev));
+	if (err)
+		goto err_phylink_create;
+
+	err = register_netdev(si->ndev);
+	if (err)
+		goto err_reg_netdev;
+
+	return 0;
+
+err_reg_netdev:
+	enetc_phylink_destroy(priv);
+err_phylink_create:
+	component_unbind_all(dev, NULL);
+	return err;
+}
+
+static void enetc_pf_master_unbind(struct device *dev)
+{
+	struct enetc_si *si = dev_get_drvdata(dev);
+	struct enetc_pf *pf = enetc_si_priv(si);
+	struct enetc_ndev_priv *priv;
+
+	priv = netdev_priv(si->ndev);
+
+	if (pf->num_vfs)
+		enetc_sriov_configure(pdev, 0);
+
+	unregister_netdev(si->ndev);
+
+	enetc_phylink_destroy(priv);
+}
+
+static const struct component_master_ops enetc_pf_master_ops = {
+	.bind = enetc_pf_master_bind,
+	.unbind = enetc_pf_master_unbind,
+};
+
 static int enetc_pf_probe(struct pci_dev *pdev,
 			  const struct pci_device_id *ent)
 {
@@ -1331,19 +1374,14 @@ static int enetc_pf_probe(struct pci_dev *pdev,
 	if (err)
 		goto err_mdiobus_create;
 
-	err = enetc_phylink_create(priv, node);
+	err = component_master_add_with_match(&pdev->dev, &enetc_pf_master_ops,
+					      pf->match);
 	if (err)
-		goto err_phylink_create;
-
-	err = register_netdev(ndev);
-	if (err)
-		goto err_reg_netdev;
+		goto err_master_create;
 
 	return 0;
 
-err_reg_netdev:
-	enetc_phylink_destroy(priv);
-err_phylink_create:
+err_master_create:
 	enetc_mdiobus_destroy(pf);
 err_mdiobus_create:
 err_phy_mode:
