@@ -2,6 +2,7 @@
 /* Copyright 2019 NXP */
 
 #include <linux/acpi.h>
+#include <linux/pcs.h>
 #include <linux/pcs-lynx.h>
 #include <linux/phy/phy.h>
 #include <linux/property.h>
@@ -246,32 +247,10 @@ static int dpaa2_pcs_create(struct dpaa2_mac *mac,
 			    struct fwnode_handle *dpmac_node,
 			    int id)
 {
-	struct mdio_device *mdiodev;
-	struct fwnode_handle *node;
-
-	node = fwnode_find_reference(dpmac_node, "pcs-handle", 0);
-	if (IS_ERR(node)) {
-		/* do not error out on old DTS files */
-		netdev_warn(mac->net_dev, "pcs-handle node not found\n");
-		return 0;
-	}
-
-	if (!fwnode_device_is_available(node)) {
-		netdev_err(mac->net_dev, "pcs-handle node not available\n");
-		fwnode_handle_put(node);
-		return -ENODEV;
-	}
-
-	mdiodev = fwnode_mdio_find_device(node);
-	fwnode_handle_put(node);
-	if (!mdiodev)
-		return -EPROBE_DEFER;
-
-	mac->pcs = lynx_pcs_create(mdiodev);
-	if (!mac->pcs) {
-		netdev_err(mac->net_dev, "lynx_pcs_create() failed\n");
-		put_device(&mdiodev->dev);
-		return -ENOMEM;
+	mac->pcs = pcs_get_by_fwnode(dpmac_node, NULL);
+	if (IS_ERR(mac->pcs)) {
+		netdev_err(mac->net_dev, "pcs_get_by_fwnode() failed\n");
+		return PTR_ERR(mac->pcs);
 	}
 
 	return 0;
@@ -279,16 +258,8 @@ static int dpaa2_pcs_create(struct dpaa2_mac *mac,
 
 static void dpaa2_pcs_destroy(struct dpaa2_mac *mac)
 {
-	struct phylink_pcs *phylink_pcs = mac->pcs;
-
-	if (phylink_pcs) {
-		struct mdio_device *mdio = lynx_get_mdio_device(phylink_pcs);
-		struct device *dev = &mdio->dev;
-
-		lynx_pcs_destroy(phylink_pcs);
-		put_device(dev);
-		mac->pcs = NULL;
-	}
+	pcs_put(mac->pcs);
+	mac->pcs = NULL;
 }
 
 static void dpaa2_mac_set_supported_interfaces(struct dpaa2_mac *mac)
