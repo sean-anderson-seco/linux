@@ -86,7 +86,9 @@ struct felix {
 	const struct felix_info		*info;
 	struct ocelot			ocelot;
 	struct mii_bus			*imdio;
+	struct device			**pcs_dev;
 	struct phylink_pcs		**pcs;
+	struct component_match		*match;
 	resource_size_t			switch_base;
 	enum dsa_tag_protocol		tag_proto;
 	const struct felix_tag_proto_ops *tag_proto_ops;

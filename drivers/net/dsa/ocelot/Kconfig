@@ -11,6 +11,7 @@ config NET_DSA_MSCC_FELIX
 	select NET_DSA_TAG_OCELOT_8021Q
 	select NET_DSA_TAG_OCELOT
 	select FSL_ENETC_MDIO
+	select PCS
 	select PCS_LYNX
 	help
 	  This driver supports the VSC9959 (Felix) switch, which is embedded as
@@ -26,6 +27,7 @@ config NET_DSA_MSCC_SEVILLE
 	select MSCC_OCELOT_SWITCH_LIB
 	select NET_DSA_TAG_OCELOT_8021Q
 	select NET_DSA_TAG_OCELOT
+	select PCS
 	select PCS_LYNX
 	help
 	  This driver supports the VSC9953 (Seville) switch, which is embedded

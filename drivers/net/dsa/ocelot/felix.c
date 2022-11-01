@@ -13,8 +13,10 @@
 #include <soc/mscc/ocelot_ana.h>
 #include <soc/mscc/ocelot_ptp.h>
 #include <soc/mscc/ocelot.h>
+#include <linux/component.h>
 #include <linux/dsa/8021q.h>
 #include <linux/dsa/ocelot.h>
+#include <linux/pcs.h>
 #include <linux/platform_device.h>
 #include <linux/ptp_classify.h>
 #include <linux/module.h>
@@ -1110,6 +1112,7 @@ static int felix_port_enable(struct dsa_switch *ds, int port,
 {
 	struct dsa_port *dp = dsa_to_port(ds, port);
 	struct ocelot *ocelot = ds->priv;
+	struct felix *felix;
 
 	if (!dsa_port_is_user(dp))
 		return 0;
@@ -1123,7 +1126,21 @@ static int felix_port_enable(struct dsa_switch *ds, int port,
 		}
 	}
 
+	felix = ocelot_to_felix(ocelot);
+	felix->pcs[port] = pcs_get_by_provider_dev(felix->pcs_dev[port]);
+	if (IS_ERR(felix->pcs[port])) {
+		dev_err(ds->dev, "Could not get PCS for port %d\n", port);
+		return PTR_ERR(felix->pcs[port]);
+	}
+
 	return 0;
+}
+
+static void felix_port_disable(struct dsa_switch *ds, int port)
+{
+	struct ocelot *ocelot = ds->priv;
+
+	pcs_put(ocelot_to_felix(ocelot)->pcs[port]);
 }
 
 static void felix_port_qos_map_init(struct ocelot *ocelot, int port)
@@ -1532,6 +1549,24 @@ static int felix_connect_tag_protocol(struct dsa_switch *ds,
 	}
 }
 
+static int felix_master_bind(struct device *dev)
+{
+	return component_bind_all(dev, NULL);
+}
+
+static void felix_master_unbind(struct device *dev)
+{
+	struct felix *felix = dev_get_drvdata(dev);
+
+	dsa_switch_shutdown(felix->ds);
+	component_unbind_all(dev, NULL);
+}
+
+static const struct component_master_ops felix_master_ops = {
+	.bind = felix_master_bind,
+	.unbind = felix_master_unbind,
+};
+
 /* Hardware initialization done here so that we can allocate structures with
  * devm without fear of dsa_register_switch returning -EPROBE_DEFER and causing
  * us to allocate structures twice (leak memory) and map PCI memory twice
@@ -1548,9 +1583,17 @@ static int felix_setup(struct dsa_switch *ds)
 	if (err)
 		return err;
 
+	err = component_master_add_with_match(ocelot->dev, &felix_master_ops,
+					      felix->match);
+	if (err) {
+		dev_err(ocelot->dev, "could not create component master: %d\n",
+			err);
+		goto out_mdiobus_free;
+	}
+
 	err = ocelot_init(ocelot);
 	if (err)
-		goto out_mdiobus_free;
+		goto out_master_del;
 
 	if (ocelot->ptp) {
 		err = ocelot_init_timestamp(ocelot, felix->info->ptp_caps);
@@ -1592,6 +1635,9 @@ out_deinit_ports:
 
 	ocelot_deinit_timestamp(ocelot);
 	ocelot_deinit(ocelot);
+
+out_master_del:
+	component_master_del(ocelot->dev, &felix_master_ops);
 
 out_mdiobus_free:
 	if (felix->info->mdio_bus_free)
@@ -2055,6 +2101,7 @@ const struct dsa_switch_ops felix_switch_ops = {
 	.phylink_mac_link_down		= felix_phylink_mac_link_down,
 	.phylink_mac_link_up		= felix_phylink_mac_link_up,
 	.port_enable			= felix_port_enable,
+	.port_disable			= felix_port_disable,
 	.port_fast_age			= felix_port_fast_age,
 	.port_fdb_dump			= felix_fdb_dump,
 	.port_fdb_add			= felix_fdb_add,

@@ -10,7 +10,9 @@
 #include <soc/mscc/ocelot_sys.h>
 #include <net/tc_act/tc_gate.h>
 #include <soc/mscc/ocelot.h>
+#include <linux/component.h>
 #include <linux/dsa/ocelot.h>
+#include <linux/pcs.h>
 #include <linux/pcs-lynx.h>
 #include <net/pkt_sched.h>
 #include <linux/iopoll.h>
@@ -958,6 +960,14 @@ static int vsc9959_mdio_bus_alloc(struct ocelot *ocelot)
 	int port;
 	int rc;
 
+	felix->pcs_dev = devm_kcalloc(dev, felix->info->num_ports,
+				      sizeof(*felix->pcs_dev),
+				      GFP_KERNEL);
+	if (!felix->pcs_dev) {
+		dev_err(dev, "failed to allocate array for PCS devs\n");
+		return -ENOMEM;
+	}
+
 	felix->pcs = devm_kcalloc(dev, felix->info->num_ports,
 				  sizeof(struct phylink_pcs *),
 				  GFP_KERNEL);
@@ -1014,8 +1024,7 @@ static int vsc9959_mdio_bus_alloc(struct ocelot *ocelot)
 
 	for (port = 0; port < felix->info->num_ports; port++) {
 		struct ocelot_port *ocelot_port = ocelot->ports[port];
-		struct phylink_pcs *phylink_pcs;
-		struct mdio_device *mdio_device;
+		struct device *pcs_dev;
 
 		if (dsa_is_unused_port(felix->ds, port))
 			continue;
@@ -1023,19 +1032,14 @@ static int vsc9959_mdio_bus_alloc(struct ocelot *ocelot)
 		if (ocelot_port->phy_mode == PHY_INTERFACE_MODE_INTERNAL)
 			continue;
 
-		mdio_device = mdio_device_create(felix->imdio, port);
-		if (IS_ERR(mdio_device))
+		pcs_dev = lynx_pcs_create_on_bus(felix->imdio, port);
+		if (IS_ERR(pcs_dev))
 			continue;
+		felix->pcs_dev[port] = pcs_dev;
+		component_match_add(dev, &felix->match, component_compare_dev,
+				    pcs_dev);
 
-		phylink_pcs = lynx_pcs_create(mdio_device);
-		if (!phylink_pcs) {
-			mdio_device_free(mdio_device);
-			continue;
-		}
-
-		felix->pcs[port] = phylink_pcs;
-
-		dev_info(dev, "Found PCS at internal MDIO address %d\n", port);
+		dev_info(dev, "Created PCS at internal MDIO address %d\n", port);
 	}
 
 	return 0;
@@ -1046,17 +1050,8 @@ static void vsc9959_mdio_bus_free(struct ocelot *ocelot)
 	struct felix *felix = ocelot_to_felix(ocelot);
 	int port;
 
-	for (port = 0; port < ocelot->num_phys_ports; port++) {
-		struct phylink_pcs *phylink_pcs = felix->pcs[port];
-		struct mdio_device *mdio_device;
-
-		if (!phylink_pcs)
-			continue;
-
-		mdio_device = lynx_get_mdio_device(phylink_pcs);
-		mdio_device_free(mdio_device);
-		lynx_pcs_destroy(phylink_pcs);
-	}
+	for (port = 0; port < ocelot->num_phys_ports; port++)
+		pcs_put(felix->pcs[port]);
 	mdiobus_unregister(felix->imdio);
 	mdiobus_free(felix->imdio);
 }
