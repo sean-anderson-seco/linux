@@ -179,9 +179,13 @@ static void dpaa2_mac_config(struct phylink_config *config, unsigned int mode,
 	if (err)
 		netdev_err(mac->net_dev,  "dpmac_set_protocol() = %d\n", err);
 
-	err = phy_set_mode_ext(mac->serdes_phy, PHY_MODE_ETHERNET, state->interface);
-	if (err)
-		netdev_err(mac->net_dev, "phy_set_mode_ext() = %d\n", err);
+	if (!phy_interface_mode_is_rgmii(mode)) {
+		err = phy_set_mode_ext(mac->serdes_phy, PHY_MODE_ETHERNET,
+				       state->interface);
+		if (err)
+			netdev_err(mac->net_dev, "phy_set_mode_ext() = %d\n",
+				   err);
+	}
 }
 
 static void dpaa2_mac_link_up(struct phylink_config *config,
@@ -317,7 +321,8 @@ static void dpaa2_mac_set_supported_interfaces(struct dpaa2_mac *mac)
 		}
 	}
 
-	if (!mac->serdes_phy)
+	if (!(mac->features & !DPAA2_MAC_FEATURE_PROTOCOL_CHANGE)
+	    || !mac->serdes_phy)
 		return;
 
 	/* In case we have access to the SerDes phy/lane, then ask the SerDes
@@ -377,8 +382,7 @@ int dpaa2_mac_connect(struct dpaa2_mac *mac)
 		return -EINVAL;
 	mac->if_mode = err;
 
-	if (mac->features & DPAA2_MAC_FEATURE_PROTOCOL_CHANGE &&
-	    !phy_interface_mode_is_rgmii(mac->if_mode) &&
+	if (mac->attr.link_type == DPMAC_LINK_TYPE_BACKPLANE &&
 	    is_of_node(dpmac_node)) {
 		serdes_phy = of_phy_get(to_of_node(dpmac_node), NULL);
 
