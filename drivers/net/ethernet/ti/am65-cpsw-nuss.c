@@ -2707,6 +2707,7 @@ am65_cpsw_nuss_init_port_ndev(struct am65_cpsw_common *common, u32 port_idx)
 
 	eth_hw_addr_set(port->ndev, port->slave.mac_addr);
 
+	port->ndev->dev.of_node = of_node_get(port->slave.phy_node);
 	port->ndev->min_mtu = AM65_CPSW_MIN_PACKET_SIZE;
 	port->ndev->max_mtu = AM65_CPSW_MAX_PACKET_SIZE -
 			      (VLAN_ETH_HLEN + ETH_FCS_LEN);
