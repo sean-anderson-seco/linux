@@ -20,6 +20,9 @@ The following first characters are used by raw bayer formats:
 - b: raw bayer, DPCM compressed
 - a: A-law compressed
 - u: u-law compressed
+- Q: raw quad (4x4) bayer, uncompressed or DPCM compressed
+- q: raw quad (4x4) bayer, uncompressed or DPCM compressed, packed (without
+     padding)
 
 2nd character: pixel order
 

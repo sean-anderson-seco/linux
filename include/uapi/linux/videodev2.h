@@ -745,6 +745,22 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_SGRBG16 v4l2_fourcc('G', 'R', '1', '6') /* 16  GRGR.. BGBG.. */
 #define V4L2_PIX_FMT_SRGGB16 v4l2_fourcc('R', 'G', '1', '6') /* 16  RGRG.. GBGB.. */
 
+/* Quad Bayer (4x4) formats */
+#define V4L2_PIX_FMT_QBGGR8 v4l2_fourcc('Q', 'B', '8', '8') /*  8  BBGG.. GGRR.. */
+#define V4L2_PIX_FMT_QGBRG8 v4l2_fourcc('Q', 'G', '8', '8') /*  8  GGBB.. RRGG.. */
+#define V4L2_PIX_FMT_QGRBG8 v4l2_fourcc('Q', 'g', '8', '8') /*  8  GGRR.. BBGG.. */
+#define V4L2_PIX_FMT_QRGGB8 v4l2_fourcc('Q', 'R', '8', '8') /*  8  RRGG.. GGBB.. */
+	/* 10bit quad bayer packed, 5 bytes for every 4 pixels */
+#define V4L2_PIX_FMT_QBGGR10P v4l2_fourcc('q', 'B', 'A', 'A') /*  10  BBGG.. GGRR.. */
+#define V4L2_PIX_FMT_QGBRG10P v4l2_fourcc('q', 'G', 'A', 'A') /*  10  GGBB.. RRGG.. */
+#define V4L2_PIX_FMT_QGRBG10P v4l2_fourcc('q', 'g', 'A', 'A') /*  10  GGRR.. BBGG.. */
+#define V4L2_PIX_FMT_QRGGB10P v4l2_fourcc('q', 'R', 'A', 'A') /*  10  RRGG.. GGBB.. */
+	/* 10bit quad bayer DPCM compressed to 8 bits */
+#define V4L2_PIX_FMT_QBGGR10DPCM8 v4l2_fourcc('Q', 'B', 'A', '8')
+#define V4L2_PIX_FMT_QGBRG10DPCM8 v4l2_fourcc('Q', 'G', 'A', '8')
+#define V4L2_PIX_FMT_QGRBG10DPCM8 v4l2_fourcc('Q', 'g', 'A', '8')
+#define V4L2_PIX_FMT_QRGGB10DPCM8 v4l2_fourcc('Q', 'R', 'A', '8')
+
 /* HSV formats */
 #define V4L2_PIX_FMT_HSV24 v4l2_fourcc('H', 'S', 'V', '3')
 #define V4L2_PIX_FMT_HSV32 v4l2_fourcc('H', 'S', 'V', '4')
